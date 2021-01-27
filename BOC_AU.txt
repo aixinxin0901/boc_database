@@ -1,0 +1,625 @@
+--High Distinction Spring 2018
+--Ai Xinxin    Xinxin.Ai@student.uts.edu.au
+--http://www.bankofchina.com/au/
+--BOC_AU
+--Bank Of China in Australia
+--Bank of China Limited Sydney Branch was established in 1942 and was the first Chinese bank to establish operations in Australia.
+--It has branches all over Australia including 5 branches in Sydney, 3 branches in Melbourne, one in Queensland 
+--                                                            and the other two are in South AU and Western AU.
+--Once there are more than one branch in one area, there would be a head branch which is in charge of the other branches in that area.
+--The head branch would have departments such as President office, Information Technology, Human resource and Creditcard department.
+--And the other branches would have Administration Office instead. All the branches would have personal banking and corporate banking department.
+--Bank of China has built a fast and highly efficient global service network supplying a diversified range of financial products.
+--Financial services include:Deposit products denominated in AUD and foreign currency;
+--                           Corporate financing;
+--                           ATM and internet banking;
+--                           Bank cards;
+--                           Personal financing.
+--One branch should have one to many ATMs. In this databse, those ATM's brands are assumed to be Pacific or Sun. 
+--A customer could open a bankcard at any branch and then use this bankcard to make transactions at any branch as they want.
+--Customer can also have a transcation using cash which means a bankcard is not a must.
+--Only staff from personal banking department could provide peronal banking services for customers.
+--And only Corporate banking staff could serve company customers.
+--
+
+DROP table BOC_AU CASCADE;
+DROP table BOC_ATM CASCADE;
+DROP table BOC_Department CASCADE;
+DROP table BOC_Staff CASCADE;
+DROP table BOC_Customer CASCADE;
+DROP table BOC_BankCard CASCADE;
+DROP table BOC_Transaction CASCADE;
+
+Create table BOC_AU
+(
+        BranchID       integer    NOT NULL,   
+        BranchName     varchar    NOT NULL,
+        TEL            integer    NOT NULL,
+        FAX            integer    NOT NULL,
+        Email          TEXT       NOT NULL,
+        Address        TEXT       NOT NULL,
+        HeadBranchID   integer,
+    CONSTRAINT BOC_AUPK PRIMARY KEY(BranchID),
+    CONSTRAINT BOC_AUFK FOREIGN KEY(HeadBranchID) REFERENCES BOC_AU
+
+);
+Create table BOC_ATM
+(
+        ATMID        integer    NOT NULL,
+        ATMBrand     varchar    NOT NULL,
+        BranchID     integer    NOT NULL,
+    CONSTRAINT BOC_ATMPK PRIMARY KEY(ATMID),
+    CONSTRAINT BOC_ATMFK FOREIGN KEY(BranchID) REFERENCES BOC_AU ON DELETE RESTRICT,
+    CONSTRAINT di_table_BOC_ATM_ATMBrand CHECK (ATMBrand IN ('Pacific','Sun'))
+
+);
+Create table BOC_Department
+(
+        BranchID     integer    NOT NULL,
+        DepID        integer    NOT NULL,
+        DepName      TEXT       NOT NULL,
+    CONSTRAINT BOC_DepartmentPK PRIMARY KEY(BranchID,DepID),
+    CONSTRAINT BOC_DepartmentFK FOREIGN KEY(BranchID) REFERENCES BOC_AU ON DELETE RESTRICT
+ 
+);
+Create table BOC_Staff
+(
+        BranchID    integer,
+        DepID       integer,
+        StaffID     integer,
+        StaffName   TEXT,
+        StaffGender char(1),
+        StaffBirth  integer,
+        StaffLevel  integer,
+        Salary      integer,
+        Address     TEXT,
+        ManagerID   integer,
+    CONSTRAINT BOC_StaffPK PRIMARY KEY(StaffID),
+    CONSTRAINT BOC_StaffFK FOREIGN KEY(BranchID,DepID) REFERENCES BOC_Department ON DELETE RESTRICT,
+    CONSTRAINT di_table_BOC_Staff_StaffGender CHECK(StaffGender IN ('M','F')),
+    CONSTRAINT di_table_BOC_Staff_StaffBirth CHECK(StaffBirth >= 1900 AND StaffBirth <= 2000),
+    CONSTRAINT di_table_BOC_Staff_StaffLevel CHECK(StaffLevel >=1 and StaffLevel < 10)
+ 
+);
+Create table BOC_Customer
+(
+        CusID      integer,    
+        CusName    TEXT,
+        CusGender  char(1),   
+        CusBirth   integer,
+        CusTEL     integer,
+        CusType    char(1),
+        CusLevel   char(1),
+        Address    TEXT,
+    CONSTRAINT BOC_CustomerPK PRIMARY KEY(CusID),
+    CONSTRAINT di_table_BOC_Customer_CusGender CHECK (CusGender IN ('M',   --male
+                                                                    'F')), --female
+    CONSTRAINT di_table_BOC_Customer_CusType CHECK (CusType IN ('P',    --private,
+                                                                'C')),  --company
+    CONSTRAINT di_table_BOC_Customer_CusLevel CHECK (CusLevel IN ('A','B','C','N')),
+    CONSTRAINT di_table_BOC_Customer_CusBirth CHECK (CusBirth >= 1900 AND CusBirth <= 2000)
+);
+Create table BOC_BankCard
+(
+        BranchID    integer,
+        CusID       integer,
+        CardNo      integer,
+    CONSTRAINT BOC_BankCardPK PRIMARY KEY(BranchID,CusID,CardNO),
+    CONSTRAINT BOC_BankCardFK_AU FOREIGN KEY(BranchID) REFERENCES BOC_AU ON DELETE RESTRICT,
+    CONSTRAINT BOC_BankCardFK_Customer FOREIGN KEY(CusID) REFERENCES BOC_Customer ON DELETE CASCADE
+);
+
+Create table BOC_Transaction
+(
+        TransID    integer,
+        CardNO     integer,
+        CusID      integer,
+        StaffID    integer,
+        TransType  TEXT,
+        Amount     integer,
+        Year       integer,
+        Month      char(3),
+        Day        integer,
+    CONSTRAINT BOC_TransactionPK PRIMARY KEY(TransID),
+    CONSTRAINT BOC_TransactionFK_Customer FOREIGN KEY(CusID) REFERENCES BOC_Customer ON DELETE CASCADE,
+    CONSTRAINT BOC_TransactionFK_Staff FOREIGN KEY(StaffID) REFERENCES BOC_Staff ON DELETE RESTRICT,
+    CONSTRAINT di_table_BOC_Transaction_TransType CHECK 
+                       (TransType IN ('O',  --open account
+                                      'W',  --withdraw money
+                                      'D',  --deposit money
+                                      'E',  --exchange money
+                                      'C')),--company transcations
+    CONSTRAINT di_table_BOC_Transaction_Year CHECK (Year >= 1990 AND Year <= 2018),
+    CONSTRAINT di_table_BOC_Transaction_Month CHECK
+                       (Month IN('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')),
+    CONSTRAINT di_table_BOC_Transaction_Day CHECK (Day >= 1 AND Day <= 31)
+);
+
+
+CREATE VIEW PersonalBankingStaff As
+            select staffid as ID, staffname as name,staffgender as G,(2018 -staffbirth) as Age,stafflevel as level,salary,depid 
+            from boc_staff natural join boc_department 
+            where depname = 'Personal Banking' order by staffid;
+
+
+CREATE VIEW SydneyStaff As
+             select s.staffid as id, s.staffname as name,s.stafflevel,(2018-s.staffbirth) as age,d.depname,a.branchid,a.branchname 
+             from boc_au a, boc_staff s,boc_department d  where( a.branchid = 1 or a.headbranchid = 1) 
+                                and a.branchid = s.branchid and a.branchid = d.branchid and s.branchid = d.branchid 
+                                and d.depid = s.depid  order by a.branchname;
+
+
+
+
+
+INSERT INTO BOC_AU VALUES(001,'Sydney Branch',282355888,292996587,'banking.au@bankofchina.com','39-41 York Street, Sydney NSW 2000',null);
+INSERT INTO BOC_AU VALUES(002,'Haymarket Branch',292123877,292123962,'haymarket.au@bankofchina.com ','681 George Street, Haymarket NSW 2000',001);
+INSERT INTO BOC_AU VALUES(003,'Parramatta Branch',288376288,296872919,'parramatta.au@bankofchina.com ','143 Church Street, Parramatta NSW 2150',001);
+INSERT INTO BOC_AU VALUES(004,'Hurstville Branch',295863205,295793442,'hurstville.au@bankofchina.com ','213 Forest Road, Hurstville NSW 2220',001);
+INSERT INTO BOC_AU VALUES(005,'Chatswood Branch',284408600,298848388,'chatswood.au@bankofchina.com ','Shop 12, The Concourse, Corner of Anderson St & Victoria Ave, Chatswood NSW 2067',001);
+INSERT INTO BOC_AU VALUES(006,'Burwood Branch',287410666,297158388,'burwood.au@bankofchina.com','170 Burwood Road, Burwood NSW 2134 ',001);
+INSERT INTO BOC_AU VALUES(007,'Melbourne Branch',396023655,396023383,'melbourne.au@bankofchina.com','270 Queen Street, Melbourne VIC 3000',null);
+INSERT INTO BOC_AU VALUES(008,'Boxhill Branch','398997988','398990788','boxhill.au@bankofchina.com','916-918 Whitehorse Road, Box Hill VIC 3128',007);
+INSERT INTO BOC_AU VALUES(009,'Melbourne Chinatown Branch ','396357777','396639991','melchinatown@bankofchina.com','219-225 Swanston Street, Melbourne VIC 3000',007);
+INSERT INTO BOC_AU VALUES(010,'Brisbane Branch','732213988','732211988','brisbane.au@bankofchina.com','Ground Floor, 307 Queen Street, Brisbane QLD 4000',null);
+INSERT INTO BOC_AU VALUES(011,'Perth Branch','892633777','893211845','perth.au@bankofchina.com','Ground Floor, 179 St Georges Terrace, Perth WA 6000',null);
+INSERT INTO BOC_AU VALUES(012,'Adelaide Branch','882108988','882118977','adelaide.au@bankofchina.com','Level 8,1 King William Street, Adelaide SA 5000',null);
+
+
+
+
+INSERT INTO BOC_ATM VALUES(0101,'Pacific',001);
+INSERT INTO BOC_ATM VALUES(0102,'Pacific',001);
+INSERT INTO BOC_ATM VALUES(0103,'Sun',001);
+INSERT INTO BOC_ATM VALUES(0104,'Sun',001);
+INSERT INTO BOC_ATM VALUES(0105,'Sun',001);
+INSERT INTO BOC_ATM VALUES(0106,'Pacific',001);
+INSERT INTO BOC_ATM VALUES(0201,'Sun',002);
+INSERT INTO BOC_ATM VALUES(0202,'Sun',002);
+INSERT INTO BOC_ATM VALUES(0203,'Sun',002);
+INSERT INTO BOC_ATM VALUES(0301,'Pacific',003);
+INSERT INTO BOC_ATM VALUES(0302,'Pacific',003);
+INSERT INTO BOC_ATM VALUES(0303,'Sun',003);
+INSERT INTO BOC_ATM VALUES(0304,'Sun',003);
+INSERT INTO BOC_ATM VALUES(0401,'Pacific',004);
+INSERT INTO BOC_ATM VALUES(0402,'Pacific',004);
+INSERT INTO BOC_ATM VALUES(0501,'Sun',005);
+INSERT INTO BOC_ATM VALUES(0502,'Pacific',005);
+INSERT INTO BOC_ATM VALUES(0503,'Sun',005);
+INSERT INTO BOC_ATM VALUES(0601,'Sun',006);
+INSERT INTO BOC_ATM VALUES(0602,'Sun',006);
+INSERT INTO BOC_ATM VALUES(0603,'Sun',006);
+INSERT INTO BOC_ATM VALUES(0701,'Sun',007);
+INSERT INTO BOC_ATM VALUES(0702,'Pacific',007);
+INSERT INTO BOC_ATM VALUES(0801,'Sun',008);
+INSERT INTO BOC_ATM VALUES(0901,'Sun',009);
+INSERT INTO BOC_ATM VALUES(0902,'Pacific',009);
+INSERT INTO BOC_ATM VALUES(1001,'Sun',010);
+INSERT INTO BOC_ATM VALUES(1101,'Sun',011);
+INSERT INTO BOC_ATM VALUES(1102,'Pacific',011);
+INSERT INTO BOC_ATM VALUES(1201,'Pacific',012);
+INSERT INTO BOC_ATM VALUES(1202,'Pacific',012);
+INSERT INTO BOC_ATM VALUES(1203,'Pacific',012);
+
+
+
+
+INSERT INTO BOC_Department VALUES(001,01001,'President Office');
+INSERT INTO BOC_Department VALUES(001,01002,'Human Resource');
+INSERT INTO BOC_Department VALUES(001,01003,'Information Technology');
+INSERT INTO BOC_Department VALUES(001,01004,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(001,01005,'Personal Banking');
+INSERT INTO BOC_Department VALUES(001,01006,'CreditCard');
+INSERT INTO BOC_Department VALUES(002,02001,'Administration Office');
+INSERT INTO BOC_Department VALUES(002,02002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(002,02003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(003,03001,'Administration Office');
+INSERT INTO BOC_Department VALUES(003,03002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(003,03003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(004,04001,'Administration Office');
+INSERT INTO BOC_Department VALUES(004,04002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(004,04003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(005,05001,'Administration Office');
+INSERT INTO BOC_Department VALUES(005,05002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(005,05003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(006,06001,'Administration Office');
+INSERT INTO BOC_Department VALUES(006,06002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(006,06003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(007,07001,'President Office');
+INSERT INTO BOC_Department VALUES(007,07002,'Human Resource');
+INSERT INTO BOC_Department VALUES(007,07003,'Information Technology');
+INSERT INTO BOC_Department VALUES(007,07004,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(007,07005,'Personal Banking');
+INSERT INTO BOC_Department VALUES(007,07006,'CreditCard');
+INSERT INTO BOC_Department VALUES(008,08001,'Administration Office');
+INSERT INTO BOC_Department VALUES(008,08002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(008,08003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(009,09001,'Administration Office');
+INSERT INTO BOC_Department VALUES(009,09002,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(009,09003,'Personal Banking');
+INSERT INTO BOC_Department VALUES(010,10001,'President Office');
+INSERT INTO BOC_Department VALUES(010,10002,'Human Resource');
+INSERT INTO BOC_Department VALUES(010,10003,'Information Technology');
+INSERT INTO BOC_Department VALUES(010,10004,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(010,10005,'Personal Banking');
+INSERT INTO BOC_Department VALUES(010,10006,'CreditCard');
+INSERT INTO BOC_Department VALUES(011,11001,'President Office');
+INSERT INTO BOC_Department VALUES(011,11002,'Human Resource');
+INSERT INTO BOC_Department VALUES(011,11003,'Information Technology');
+INSERT INTO BOC_Department VALUES(011,11004,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(011,11005,'Personal Banking');
+INSERT INTO BOC_Department VALUES(011,11006,'CreditCard');
+INSERT INTO BOC_Department VALUES(012,12001,'President Office');
+INSERT INTO BOC_Department VALUES(012,12002,'Human Resource');
+INSERT INTO BOC_Department VALUES(012,12003,'Information Technology');
+INSERT INTO BOC_Department VALUES(012,12004,'Corporate Banking');
+INSERT INTO BOC_Department VALUES(012,12005,'Personal Banking');
+INSERT INTO BOC_Department VALUES(012,12006,'CreditCard');
+
+
+
+
+
+INSERT INTO BOC_Staff VALUES(001,01001,0100101,'Abraham','M',1950,1,50000,'Central',null);
+INSERT INTO BOC_Staff VALUES(001,01002,0100201,'Boris','F',1977,3,20000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(001,01002,0100202,'Curt','M',1990,9,3000,'Ashfiled',0100201);
+INSERT INTO BOC_Staff VALUES(001,01002,0100203,'Murray','M',1987,7,5000,'Homebush',0100201);
+INSERT INTO BOC_Staff VALUES(001,01002,0100204,'Ivan','F',1960,6,6000,'Berry',0100201);
+INSERT INTO BOC_Staff VALUES(001,01003,0100301,'Henry','M',1976,4,22000,'Central',null);
+INSERT INTO BOC_Staff VALUES(001,01003,0100302,'Galvin','M',1991,8,8000,'Ultimo',0100301);
+INSERT INTO BOC_Staff VALUES(001,01004,0100401,'Gilbert','M',1980,3,24000,'Berowra',null);
+INSERT INTO BOC_Staff VALUES(001,01004,0100402,'Sean','M',1984,5,30000,'Kingsford',0100401);
+INSERT INTO BOC_Staff VALUES(001,01004,0100403,'Trent','F',1977,6,10000,'Buxton',0100401);
+INSERT INTO BOC_Staff VALUES(001,01005,0100501,'Seth','F',1978,6,18000,'Wyard',null);
+INSERT INTO BOC_Staff VALUES(001,01005,0100502,'Jason','M',1993,9,2000,'Ultimo',0100501);
+INSERT INTO BOC_Staff VALUES(001,01005,0100503,'Quade','F',1990,8,25000,'Erskineville',0100501);
+INSERT INTO BOC_Staff VALUES(001,01005,0100504,'Philip','M',1970,5,18000,'GreenSquare',0100501);
+INSERT INTO BOC_Staff VALUES(001,01005,0100505,'Peter','M',1988,4,21000,'Stanmore',0100501);
+INSERT INTO BOC_Staff VALUES(001,01006,0100601,'Ross','F',1990,6,15000,'Newtown',null);
+INSERT INTO BOC_Staff VALUES(001,01006,0100602,'Paul','M',1992,8,6000,'Petersham',0100601);
+INSERT INTO BOC_Staff VALUES(001,01006,0100603,'Alton','M',1978,5,20000,'Mascot',0100601);
+INSERT INTO BOC_Staff VALUES(001,01006,0100604,'Bruce','F',1992,7,9000,'Lewisham',0100601);
+
+INSERT INTO BOC_Staff VALUES(002,02001,0200101,'Blake','M',1970,4,23000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(002,02002,0200201,'Aaron','M',1988,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(002,02002,0200202,'Giles','M',1977,6,20000,'Central',0200201);
+INSERT INTO BOC_Staff VALUES(002,02002,0200203,'Melvin','F',1960,5,21000,'Central',0200201);
+INSERT INTO BOC_Staff VALUES(002,02003,0200301,'Victor','M',1992,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(002,02003,0200302,'Ward','M',1990,9,3000,'Mascot',0200301);
+INSERT INTO BOC_Staff VALUES(002,02003,0200303,'Marvin','M',1991,7,7000,'MartinPlace');
+INSERT INTO BOC_Staff VALUES(003,03001,0300101,'Maddox','M',1970,4,23000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(003,03002,0300201,'George','M',1988,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(003,03002,0300202,'Abbott','M',1977,6,20000,'Central',0300201);
+INSERT INTO BOC_Staff VALUES(003,03002,0300203,'Jacob','F',1960,5,21000,'Central',0300201);
+INSERT INTO BOC_Staff VALUES(003,03003,0300301,'Paxton','M',1992,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(003,03003,0300302,'Renfred','M',1990,9,3000,'Mascot',0300301);
+INSERT INTO BOC_Staff VALUES(003,03003,0300303,'Hubert','F',1956,6,22000,'Central',0300301);
+
+INSERT INTO BOC_Staff VALUES(004,04001,0400101,'Hartley','M',1972,4,13000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(004,04002,0400201,'Perry','M',1948,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(004,04002,0400202,'Alastair','M',1957,6,2000,'Central',0400201);
+INSERT INTO BOC_Staff VALUES(004,04002,0400203,'Blair','F',1960,5,21000,'Central',0400201);
+INSERT INTO BOC_Staff VALUES(004,04003,0400301,'Calvin','M',1952,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(004,04003,0400302,'Cyril','M',1980,9,3000,'Mascot',0400301);
+INSERT INTO BOC_Staff VALUES(004,04003,0400303,'Maddox','F',1986,6,22000,'Central',0400301);
+
+INSERT INTO BOC_Staff VALUES(005,05001,0500101,'Matthew','M',1972,4,33000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(005,05002,0500201,'Olin','M',1948,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(005,05002,0500202,'Oswald','M',1957,6,2000,'Central',0500201);
+INSERT INTO BOC_Staff VALUES(005,05002,0500203,'Jesse','F',1960,5,11000,'Central',0500201);
+INSERT INTO BOC_Staff VALUES(005,05003,0500301,'Keene','M',1952,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(005,05003,0500302,'Leslie','M',1980,9,30000,'Mascot',0500301);
+INSERT INTO BOC_Staff VALUES(005,05003,0500303,'Lyndon','F',1986,6,2200,'Central',0500301);
+
+INSERT INTO BOC_Staff VALUES(006,06001,0600101,'Matthew','M',1972,4,33000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(006,06002,0600201,'Olin','M',1978,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(006,06002,0600202,'Oswald','M',1957,6,2000,'Central',0600201);
+INSERT INTO BOC_Staff VALUES(006,06002,0600203,'Jesse','F',1950,5,11000,'Central',0600201);
+INSERT INTO BOC_Staff VALUES(006,06003,0600301,'Keene','M',1952,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(006,06003,0600302,'Leslie','M',1990,9,30000,'Mascot',0600301);
+INSERT INTO BOC_Staff VALUES(006,06003,0600303,'Lyndon','F',1996,6,2200,'Central',0600301);
+
+INSERT INTO BOC_Staff VALUES(007,07001,0700101,'Kent','M',1970,2,50000,'Central',null);
+INSERT INTO BOC_Staff VALUES(007,07002,0700201,'Lancelot','F',1987,3,20000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(007,07002,0700202,'Kody','M',1980,9,3000,'Ashfiled',0700201);
+INSERT INTO BOC_Staff VALUES(007,07002,0700203,'Jeffrey','M',1967,7,5000,'Homebush',0700201);
+INSERT INTO BOC_Staff VALUES(007,07003,0700301,'Joshua','M',1986,4,22000,'Central',null);
+INSERT INTO BOC_Staff VALUES(007,07003,0700302,'Nathaniel','M',1961,8,8000,'Ultimo',0700301);
+INSERT INTO BOC_Staff VALUES(007,07004,0700401,'Morris','M',1980,3,24000,'Berowra',null);
+INSERT INTO BOC_Staff VALUES(007,07004,0700402,'Oswald','M',1994,5,30000,'Kingsford',0700401);
+INSERT INTO BOC_Staff VALUES(007,07004,0700403,'Brice','F',1977,6,11000,'Buxton',0700401);
+INSERT INTO BOC_Staff VALUES(007,07005,0700501,'Casey','F',1968,6,18000,'Wyard',null);
+INSERT INTO BOC_Staff VALUES(007,07005,0700502,'Arnold','M',1983,9,5000,'Ultimo',0700501);
+INSERT INTO BOC_Staff VALUES(007,07005,0700503,'Daley','F',1994,8,24000,'Erskineville',0700501);
+INSERT INTO BOC_Staff VALUES(007,07005,0700504,'Dean','M',1960,5,19000,'GreenSquare',0700501);
+INSERT INTO BOC_Staff VALUES(007,07006,0700601,'Egil','F',1980,6,15000,'Newtown',null);
+INSERT INTO BOC_Staff VALUES(007,07006,0700602,'Hale','M',1982,8,6000,'Petersham',0700601);
+INSERT INTO BOC_Staff VALUES(007,07006,0700603,'Ives','M',1988,5,27000,'Mascot',0700601);
+
+INSERT INTO BOC_Staff VALUES(008,08001,0800101,'Goddard','M',1988,4,30000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(008,08002,0800201,'Gresham','M',1978,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(008,08002,0800202,'Harrison','M',1959,6,22000,'Central',0800201);
+INSERT INTO BOC_Staff VALUES(008,08002,0800203,'Hugo','F',1977,5,15000,'Central',0800201);
+INSERT INTO BOC_Staff VALUES(008,08003,0800301,'Ian','M',1990,6,12000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(008,08003,0800302,'Paxton','M',1980,9,30000,'Mascot',0800301);
+INSERT INTO BOC_Staff VALUES(008,08003,0800303,'Quade','F',1996,6,2200,'Central',0800301);
+
+INSERT INTO BOC_Staff VALUES(009,09001,0900101,'Robin','M',1970,3,30000,'Redfern',null);
+INSERT INTO BOC_Staff VALUES(009,09002,0900201,'Phineas','M',1978,7,18000,'Mascot',null);
+INSERT INTO BOC_Staff VALUES(009,09002,0900202,'Jacob','M',1987,6,2000,'Central',0900201);
+INSERT INTO BOC_Staff VALUES(009,09002,0900203,'Justin','F',1970,5,11000,'Central',0900201);
+INSERT INTO BOC_Staff VALUES(009,09003,0900301,'Kendrick','M',1952,6,15000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(009,09003,0900302,'Lambert','M',1977,9,30000,'Mascot',0900301);
+INSERT INTO BOC_Staff VALUES(009,09003,0900303,'Lionel','F',1986,6,7200,'Central',0900301);
+
+INSERT INTO BOC_Staff VALUES(010,10001,1000101,'Lamont','M',1980,3,50000,'Central',null);
+INSERT INTO BOC_Staff VALUES(010,10002,1000201,'Lee','F',1977,5,20000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(010,10002,1000202,'Jacob','M',1980,6,13000,'Ashfiled',1000201);
+INSERT INTO BOC_Staff VALUES(010,10002,1000203,'Gabriel','M',1977,7,15000,'Homebush',1000201);
+INSERT INTO BOC_Staff VALUES(010,10003,1000301,'Hal','M',1996,7,12000,'Central',null);
+INSERT INTO BOC_Staff VALUES(010,10003,1000302,'Grover','M',1991,8,8000,'Ultimo',1000301);
+INSERT INTO BOC_Staff VALUES(010,10004,1000401,'Herman','M',1970,3,24000,'Berowra',null);
+INSERT INTO BOC_Staff VALUES(010,10004,1000402,'Samson','M',1984,8,3000,'Kingsford',1000401);
+INSERT INTO BOC_Staff VALUES(010,10004,1000403,'Spencer','F',1977,6,11000,'Buxton',1000401);
+INSERT INTO BOC_Staff VALUES(010,10005,1000501,'Toby','F',1968,6,28000,'Wyard',null);
+INSERT INTO BOC_Staff VALUES(010,10005,1000502,'Udolf','M',1993,9,5000,'Ultimo',1000501);
+INSERT INTO BOC_Staff VALUES(010,10005,1000503,'Scott','F',1994,8,24000,'Erskineville',1000501);
+INSERT INTO BOC_Staff VALUES(010,10005,1000504,'Sherwin','M',1980,5,29000,'GreenSquare',1000501);
+INSERT INTO BOC_Staff VALUES(010,10006,1000601,'Theobold','F',1980,6,25000,'Newtown',null);
+INSERT INTO BOC_Staff VALUES(010,10006,1000602,'Vance','M',1982,6,16000,'Petersham',1000601);
+INSERT INTO BOC_Staff VALUES(010,10006,1000603,'Willard','M',1978,5,27000,'Mascot',1000601);
+
+INSERT INTO BOC_Staff VALUES(011,11001,1100101,'Vincent','M',1988,5,40000,'Central',null);
+INSERT INTO BOC_Staff VALUES(011,11002,1100201,'Walter','F',1987,5,20000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(011,11002,1100202,'Wyatt','M',1984,6,19000,'Ashfiled',1100201);
+INSERT INTO BOC_Staff VALUES(011,11002,1100203,'Zebediah','M',1987,7,18000,'Homebush',1100201);
+INSERT INTO BOC_Staff VALUES(011,11003,1100301,'Phineas','M',1966,7,12000,'Central',null);
+INSERT INTO BOC_Staff VALUES(011,11003,1100302,'Ralph','M',1971,8,6000,'Ultimo',1100301);
+INSERT INTO BOC_Staff VALUES(011,11004,1100401,'Rex','M',1980,3,34000,'Berowra',null);
+INSERT INTO BOC_Staff VALUES(011,11004,1100402,'Russell','M',1994,8,5000,'Kingsford',1100401);
+INSERT INTO BOC_Staff VALUES(011,11004,1100403,'Godfrey','F',1997,6,11000,'Buxton',1100401);
+INSERT INTO BOC_Staff VALUES(011,11005,1100501,'Harold','F',1968,6,18000,'Wyard',null);
+INSERT INTO BOC_Staff VALUES(011,11005,1100502,'Adley','M',1983,9,5000,'Ultimo',1100501);
+INSERT INTO BOC_Staff VALUES(011,11005,1100503,'Baldwin','F',1984,8,4000,'Erskineville',1100501);
+INSERT INTO BOC_Staff VALUES(011,11005,1100504,'Cadman','M',1990,5,39000,'GreenSquare',1100501);
+INSERT INTO BOC_Staff VALUES(011,11006,1100601,'Carl','F',1980,6,35000,'Newtown',null);
+INSERT INTO BOC_Staff VALUES(011,11006,1100602,'Jonathan','M',1972,6,18000,'Petersham',1100601);
+INSERT INTO BOC_Staff VALUES(011,11006,1100603,'Kelsey','M',1988,4,27000,'Mascot',1100601);
+
+INSERT INTO BOC_Staff VALUES(012,12001,1200101,'Jasper','M',1978,3,45000,'Central',null);
+INSERT INTO BOC_Staff VALUES(012,12002,1200201,'Kenway','F',1986,5,20000,'Ultimo',null);
+INSERT INTO BOC_Staff VALUES(012,12002,1200202,'Lars','M',1984,6,19000,'Ashfiled',1200201);
+INSERT INTO BOC_Staff VALUES(012,12002,1200203,'Luther','M',1987,7,18000,'Homebush',1200201);
+INSERT INTO BOC_Staff VALUES(012,12003,1200301,'Garth','M',1966,7,12000,'Central',null);
+INSERT INTO BOC_Staff VALUES(012,12003,1200302,'Hamlin','M',1971,8,6000,'Ultimo',1200301);
+INSERT INTO BOC_Staff VALUES(012,12004,1200401,'Irving','M',1980,3,34000,'Berowra',null);
+INSERT INTO BOC_Staff VALUES(012,12004,1200402,'Adam','M',1994,8,15000,'Kingsford',1200401);
+INSERT INTO BOC_Staff VALUES(012,12004,1200403,'Aldis','F',1997,6,12000,'Buxton',1200401);
+INSERT INTO BOC_Staff VALUES(012,12005,1210501,'Barry','F',1968,6,18000,'Wyard',null);
+INSERT INTO BOC_Staff VALUES(012,12005,1200502,'Carroll','M',1983,9,15000,'Ultimo',1200501);
+INSERT INTO BOC_Staff VALUES(012,12005,1200503,'Colin','F',1984,8,4000,'Erskineville',1200501);
+INSERT INTO BOC_Staff VALUES(012,12005,1200504,'Kendall','M',1990,5,29000,'GreenSquare',1200501);
+INSERT INTO BOC_Staff VALUES(012,12006,1200601,'Lionel','F',1980,6,15000,'Newtown',null);
+INSERT INTO BOC_Staff VALUES(012,12006,1200602,'Guy','M',1972,6,18000,'Petersham',1200601);
+INSERT INTO BOC_Staff VALUES(012,12006,1200603,'Homer','M',1988,7,17000,'Mascot',1200601);
+
+
+
+
+
+
+INSERT INTO BOC_Customer VALUES(3846,'Oliver','F',1987,372363534,'P','A','Allawah');
+INSERT INTO BOC_Customer VALUES(3732,'Harry','M',1975,362564624,'P','B','Ashfield');
+INSERT INTO BOC_Customer VALUES(3737,'Callum','M',1976,364556664,'P','C','Auburn');
+INSERT INTO BOC_Customer VALUES(4766,'Oscar','M',1995,364465455,'P','N','Artarmon');
+INSERT INTO BOC_Customer VALUES(3635,'William','M',1945,335357485,'P','A','Asquith');
+INSERT INTO BOC_Customer VALUES(3645,'Bethany','F',1988,365326234,'P','C','Bell');
+INSERT INTO BOC_Customer VALUES(2769,'Emily','F',1967,325326544,'P','B','Doonside');
+INSERT INTO BOC_Customer VALUES(4662,'Isla','F',1954,362653677,'P','C','Emun Plains');
+INSERT INTO BOC_Customer VALUES(3762,'Michael','M',1977,236263539,'P','B','Gordon');
+INSERT INTO BOC_Customer VALUES(2376,'Margaret','F',1990,363635556,'P','N','Hilldale');
+
+INSERT INTO BOC_Customer VALUES(3722,'Joe','M',1989,789635375,'P','N','Kiama');
+INSERT INTO BOC_Customer VALUES(3670,'Poppy','F',1995,326357964,'P','N','Kingswood');
+INSERT INTO BOC_Customer VALUES(3768,'Sophia','F',1965,326726355,'P','C','Lawson');
+INSERT INTO BOC_Customer VALUES(3797,'Charlotte','F',1988,328365466,'P','B','Leura');
+INSERT INTO BOC_Customer VALUES(2776,'Lily','F',1988,336483686,'P','N','Linden');
+INSERT INTO BOC_Customer VALUES(4778,'Jessica','F',1933,127356347,'P','B','Metford');
+INSERT INTO BOC_Customer VALUES(2876,'Ava','F',1994,362267144,'P','N','Narara');
+INSERT INTO BOC_Customer VALUES(3487,'Mason','M',1944,636452175,'P','B','Oatley');
+INSERT INTO BOC_Customer VALUES(2816,'Smith','M',1977,365353652,'P','C','Otford');
+INSERT INTO BOC_Customer VALUES(4812,'Taylor','F',1965,265452427,'P','C','Redfern');
+
+INSERT INTO BOC_Customer VALUES(3719,'Roberts','F',1985,723435267,'P','N','Raglan');
+INSERT INTO BOC_Customer VALUES(2336,'Murphy','M',1976,726454775,'P','N','Sandgate');
+INSERT INTO BOC_Customer VALUES(3104,'Sullivan','F',1988,327264551,'P','N','Scone');
+INSERT INTO BOC_Customer VALUES(3912,'Morton','M',1977,373535266,'P','B','Bell');
+INSERT INTO BOC_Customer VALUES(3913,'Davies','M',1968,273535288,'P','N','Redfern');
+INSERT INTO BOC_Customer VALUES(3219,'Mia','F',1955,635277166,'P','N','Otford');
+INSERT INTO BOC_Customer VALUES(4511,'Amelia','F',1933,327823645,'P','N','Doonside');
+INSERT INTO BOC_Customer VALUES(3401,'Noah','M',1976,373655267,'P','N','Kiama');
+INSERT INTO BOC_Customer VALUES(2331,'George','M',1988,373649551,'P','C','Gordon');
+INSERT INTO BOC_Customer VALUES(3412,'Liam','M',1932,328346436,'P','A','Bargo');
+
+INSERT INTO BOC_Customer VALUES(3321,'Jake','M',1966,326253251,'P','N','Narara');
+INSERT INTO BOC_Customer VALUES(2122,'Margaret','F',1988,327235142,'P','N','Kingsford');
+INSERT INTO BOC_Customer VALUES(3176,'Bethany','F',1978,327326524,'P','N','Kinsford');
+INSERT INTO BOC_Customer VALUES(2181,'Joanne','F',1923,328266253,'P','N','Kingsford');
+INSERT INTO BOC_Customer VALUES(2100,'Abigail','M',1980,327235463,'P','N','Ashfield');
+INSERT INTO BOC_Customer VALUES(2001,'Tracy','F',1993,484361625,'P','N','Kingsford');
+INSERT INTO BOC_Customer VALUES(2812,'Lauren','F',1991,327235352,'P','N','Ultimo');
+INSERT INTO BOC_Customer VALUES(2999,'Martin','M',2000,293377316,'P','N','Ultimo');
+INSERT INTO BOC_Customer VALUES(3910,'Rodriguez','F',1999,33281635,'P','N','Kingsford');
+INSERT INTO BOC_Customer VALUES(3000,'Gelbero','M',1988,637236334,'P','C','Ultimo');
+
+INSERT INTO BOC_Customer VALUES(8921,'SongHotel',null,null,213242344,'C','B','Redfern');
+INSERT INTO BOC_Customer VALUES(9212,'OliverBrown',null,null,765432198,'C','A','Ultimo');
+INSERT INTO BOC_Customer VALUES(9211,'JumboThai',null,null,317615333,'C','C','Ultimo');
+INSERT INTO BOC_Customer VALUES(8765,'ActivateFit',null,null,456245323,'C','C','Town Hall');
+INSERT INTO BOC_Customer VALUES(9123,'80Proof',null,null,329125462,'C','A','Wynyard');
+INSERT INTO BOC_Customer VALUES(8990,'White Rabbit',null,null,284784665,'C','B','Newtown');
+INSERT INTO BOC_Customer VALUES(9910,'m2 Gallery',null,null,357152562,'C','A','Surry Hills');
+INSERT INTO BOC_Customer VALUES(8712,'Powerhouse',null,null,346325141,'C','B','Ultimo');
+INSERT INTO BOC_Customer VALUES(8888,'Westfield',null,null,327125155,'C','A','Wynard');
+INSERT INTO BOC_Customer VALUES(8321,'Fracture Clinic',null,null,372514214,'C','B','Kingsford');
+
+
+
+
+
+
+INSERT INTO BOC_BankCard VALUES(001,3846,11111111);
+INSERT INTO BOC_BankCard VALUES(003,3846,22222222);
+INSERT INTO BOC_BankCard VALUES(005,3732,33333333);
+INSERT INTO BOC_BankCard VALUES(012,3737,44444444);
+INSERT INTO BOC_BankCard VALUES(007,4766,55555555);
+INSERT INTO BOC_BankCard VALUES(007,4766,66666666);
+INSERT INTO BOC_BankCard VALUES(002,4766,77777777);
+INSERT INTO BOC_BankCard VALUES(004,3635,88888888);
+INSERT INTO BOC_BankCard VALUES(006,3645,99999999);
+INSERT INTO BOC_BankCard VALUES(010,2769,10101010);
+INSERT INTO BOC_BankCard VALUES(011,4662,11000000);
+INSERT INTO BOC_BankCard VALUES(008,3762,12000000);
+INSERT INTO BOC_BankCard VALUES(009,2376,13000000);
+INSERT INTO BOC_BankCard VALUES(001,3722,14000000);
+INSERT INTO BOC_BankCard VALUES(002,3670,15000000);
+INSERT INTO BOC_BankCard VALUES(003,3768,16000000);
+INSERT INTO BOC_BankCard VALUES(004,3797,17000000);
+INSERT INTO BOC_BankCard VALUES(005,2776,18000000);
+INSERT INTO BOC_BankCard VALUES(006,4778,19000000);
+INSERT INTO BOC_BankCard VALUES(007,2876,20000000);
+INSERT INTO BOC_BankCard VALUES(008,2876,21000000);
+INSERT INTO BOC_BankCard VALUES(006,3487,22000000);
+INSERT INTO BOC_BankCard VALUES(004,2816,23000000);
+INSERT INTO BOC_BankCard VALUES(012,4812,24000000);
+INSERT INTO BOC_BankCard VALUES(011,3719,25000000);
+INSERT INTO BOC_BankCard VALUES(001,2336,26000000);
+INSERT INTO BOC_BankCard VALUES(001,3104,27000000);
+INSERT INTO BOC_BankCard VALUES(007,3912,28000000);
+INSERT INTO BOC_BankCard VALUES(008,3219,29000000);
+INSERT INTO BOC_BankCard VALUES(007,3913,30000000);
+INSERT INTO BOC_BankCard VALUES(001,4511,31000000);
+INSERT INTO BOC_BankCard VALUES(002,4511,32000000);
+INSERT INTO BOC_BankCard VALUES(007,4511,33000000);
+INSERT INTO BOC_BankCard VALUES(002,3401,34000000);
+INSERT INTO BOC_BankCard VALUES(003,2331,35000000);
+INSERT INTO BOC_BankCard VALUES(004,3412,36000000);
+INSERT INTO BOC_BankCard VALUES(005,3321,37000000);
+INSERT INTO BOC_BankCard VALUES(006,2122,38000000);
+INSERT INTO BOC_BankCard VALUES(012,3176,39000000);
+INSERT INTO BOC_BankCard VALUES(011,2181,40000000);
+INSERT INTO BOC_BankCard VALUES(010,2100,55555500);
+INSERT INTO BOC_BankCard VALUES(001,8921,111111);
+INSERT INTO BOC_BankCard VALUES(001,9212,222222);
+INSERT INTO BOC_BankCard VALUES(002,9211,333333);
+INSERT INTO BOC_BankCard VALUES(003,8765,444444);
+INSERT INTO BOC_BankCard VALUES(004,9123,555555);
+INSERT INTO BOC_BankCard VALUES(005,8990,666666);
+INSERT INTO BOC_BankCard VALUES(006,9910,777777);
+INSERT INTO BOC_BankCard VALUES(007,8712,888888);
+INSERT INTO BOC_BankCard VALUES(008,8888,999999);
+INSERT INTO BOC_BankCard VALUES(009,8321,110101);
+
+
+
+
+
+
+INSERT INTO BOC_Transaction VALUES(71111,11111111,3846,0100502,'O',10,1997,'Jun',31);
+INSERT INTO BOC_Transaction VALUES(71112,22222222,3846,0300302,'O',500,1998,'Jan',23);
+INSERT INTO BOC_Transaction VALUES(71113,33333333,3732,0500303,'O',100,1999,'Nov',11);
+INSERT INTO BOC_Transaction VALUES(71114,44444444,3737,1200504,'O',1000,2000,'Oct',14);
+INSERT INTO BOC_Transaction VALUES(71115,55555555,4766,0700503,'O',100,2012,'Aug',01);
+INSERT INTO BOC_Transaction VALUES(71116,66666666,4766,0700502,'O',20,2015,'Sep',09);
+INSERT INTO BOC_Transaction VALUES(71117,77777777,4766,0200303,'O',9000,2017,'Feb',19);
+INSERT INTO BOC_Transaction VALUES(71118,88888888,3635,0400301,'O',400,2013,'Jul',01);
+INSERT INTO BOC_Transaction VALUES(71119,99999999,3645,0600302,'O',1000,2017,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(72222,10101010,2769,1000502,'O',50000,2018,'Oct',09);
+INSERT INTO BOC_Transaction VALUES(72223,11000000,4662,1100503,'O',90000,2018,'Dec',12);
+INSERT INTO BOC_Transaction VALUES(72224,12000000,3762,0800303,'O',1000,2017,'Feb',06);
+INSERT INTO BOC_Transaction VALUES(72225,13000000,2376,0900303,'O',500,2012,'May',05);
+INSERT INTO BOC_Transaction VALUES(72226,14000000,3722,0100503,'O',5,2011,'Apr',03);
+INSERT INTO BOC_Transaction VALUES(72227,15000000,3670,0200302,'O',60000,2011,'Mar',12);
+INSERT INTO BOC_Transaction VALUES(72228,16000000,3768,0300303,'O',40000,1999,'Jan',17);
+INSERT INTO BOC_Transaction VALUES(72229,17000000,3797,0400302,'O',200000,2001,'May',03);
+INSERT INTO BOC_Transaction VALUES(73333,18000000,2776,0500303,'O',100000,2010,'Nov',12);
+INSERT INTO BOC_Transaction VALUES(73334,19000000,4778,0600302,'O',2000,2015,'Aug',05);
+INSERT INTO BOC_Transaction VALUES(73335,20000000,2876,0700502,'O',10,2011,'Jan',11);
+INSERT INTO BOC_Transaction VALUES(73336,21000000,2876,0800303,'O',30000,2017,'Aug',19);
+INSERT INTO BOC_Transaction VALUES(73337,22000000,3487,0600302,'O',20,2016,'Jan',03);
+INSERT INTO BOC_Transaction VALUES(73338,23000000,2816,0400302,'O',9000,2013,'Aug',01);
+INSERT INTO BOC_Transaction VALUES(73339,24000000,4812,1200503,'O',400000,2012,'Sep',04);
+INSERT INTO BOC_Transaction VALUES(74444,25000000,3719,1100503,'O',30000,2011,'May',10);
+INSERT INTO BOC_Transaction VALUES(74445,26000000,2336,0100505,'O',10,2014,'Jul',03);
+INSERT INTO BOC_Transaction VALUES(74446,27000000,3104,0100505,'O',100,2017,'Jan',02);
+INSERT INTO BOC_Transaction VALUES(74447,28000000,3912,0700502,'O',800,2016,'May',05);
+INSERT INTO BOC_Transaction VALUES(74448,29000000,3219,0800303,'O',900,2016,'May',05);
+INSERT INTO BOC_Transaction VALUES(74449,30000000,3913,0700503,'O',60000,2015,'Aug',01);
+INSERT INTO BOC_Transaction VALUES(75555,31000000,4511,0100504,'O',5,2018,'Sep',17);
+INSERT INTO BOC_Transaction VALUES(75556,32000000,4511,0200302,'O',300,2016,'Oct',10);
+INSERT INTO BOC_Transaction VALUES(75557,33000000,4511,0700503,'O',100000,2017,'Dec',24);
+INSERT INTO BOC_Transaction VALUES(75558,34000000,3401,0200303,'O',20,2018,'Mar',03);
+INSERT INTO BOC_Transaction VALUES(75559,35000000,2331,0300303,'O',300,2012,'Jan',04);
+INSERT INTO BOC_Transaction VALUES(76666,36000000,3412,0400302,'O',10,2014,'Jan',30);
+INSERT INTO BOC_Transaction VALUES(76667,37000000,3321,0500302,'O',60000,2017,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(76668,38000000,2122,0600302,'O',10000,2016,'Oct',10);
+INSERT INTO BOC_Transaction VALUES(76669,39000000,2122,1200503,'O',8888,2018,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(77777,40000000,2181,1100502,'O',1111111,2011,'Jan',01);
+INSERT INTO BOC_Transaction VALUES(77778,55555500,2100,1000504,'O',300,2014,'Apr',16);
+INSERT INTO BOC_Transaction VALUES(80000,111111,8921,0100403,'O',10000,2016,'May',05);
+INSERT INTO BOC_Transaction VALUES(80001,222222,9212,0100402,'O',20000,2015,'Oct',10);
+INSERT INTO BOC_Transaction VALUES(80002,333333,9211,0200202,'O',10000,2013,'Nov',11);
+INSERT INTO BOC_Transaction VALUES(80003,444444,8765,0300202,'O',20000,2016,'Jun',09);
+INSERT INTO BOC_Transaction VALUES(80004,555555,9123,0400203,'O',300000,2017,'Jul',07);
+INSERT INTO BOC_Transaction VALUES(80005,666666,8990,0500203,'O',50000,2015,'Apr',13);
+INSERT INTO BOC_Transaction VALUES(80006,777777,9910,0600203,'O',30000,2017,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(80007,888888,8712,0700403,'O',900000,2015,'Oct',30);
+INSERT INTO BOC_Transaction VALUES(80008,999999,8888,0800202,'O',100000,2017,'May',30);
+INSERT INTO BOC_Transaction VALUES(80009,110101,8321,0900203,'O',50000,2017,'Jan',01);
+INSERT INTO BOC_Transaction VALUES(30001,11111111,3846,0700502,'W',40,2017,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(30002,99999999,3645,0400301,'E',10000,2016,'May',09);
+INSERT INTO BOC_Transaction VALUES(30003,20000000,2876,0100504,'D',900,2013,'Feb',01);
+INSERT INTO BOC_Transaction VALUES(30004,222222,9212,0100403,'C',200,2018,'Aug',07);
+INSERT INTO BOC_Transaction VALUES(30005,37000000,3321,1100503,'D',50000,2018,'Feb',08);
+INSERT INTO BOC_Transaction VALUES(30006,21000000,2876,0100504,'W',400,2017,'May',10);
+INSERT INTO BOC_Transaction VALUES(30007,28000000,3912,0900303,'E',3000,2018,'Feb',20);
+INSERT INTO BOC_Transaction VALUES(30008,35000000,2331,0200303,'D',50000,2018,'Aug',01);
+INSERT INTO BOC_Transaction VALUES(30009,21000000,2876,0900303,'E',60000,2018,'Sep',02);
+INSERT INTO BOC_Transaction VALUES(30010,39000000,2122,0100502,'E',1000,2018,'Mar',01);
+INSERT INTO BOC_Transaction VALUES(30011,13000000,2376,0100505,'D',30000,2018,'Mar',02);
+INSERT INTO BOC_Transaction VALUES(30012,32000000,4511,1000504,'D',200000,2018,'Mar',03);
+INSERT INTO BOC_Transaction VALUES(30013,40000000,2181,0300303,'D',4000,2018,'Apr',01);
+INSERT INTO BOC_Transaction VALUES(30014,36000000,3412,0300303,'W',20000,2018,'Jan',24);
+INSERT INTO BOC_Transaction VALUES(30015,77777777,4766,0200302,'W',60000,2018,'Apr',01);
+INSERT INTO BOC_Transaction VALUES(30016,66666666,4766,0700503,'W',80000,2018,'Mar',03);
+INSERT INTO BOC_Transaction VALUES(30017,33333333,3732,1000504,'E',20000,2018,'Apr',04);
+INSERT INTO BOC_Transaction VALUES(30018,44444444,3737,0100504,'D',10000,2018,'Jun',06);
+INSERT INTO BOC_Transaction VALUES(30019,11111111,3846,0500303,'E',30000,2018,'Jun',07);
+INSERT INTO BOC_Transaction VALUES(30020,55555555,4766,0100504,'D',90000,2018,'Jun',08);
+INSERT INTO BOC_Transaction VALUES(30021,88888888,3635,0200303,'D',30000,2018,'Jun',09);
+INSERT INTO BOC_Transaction VALUES(30022,99999999,3645,0400302,'E',8000,2018,'Jun',10);
+INSERT INTO BOC_Transaction VALUES(30023,10101010,2769,1200503,'D',300000,2018,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(30024,21000000,2876,0600302,'W',10000,2018,'Aug',09);
+INSERT INTO BOC_Transaction VALUES(30025,55555500,2100,0100503,'D',20000,2018,'Aug',09);
+INSERT INTO BOC_Transaction VALUES(30026,39000000,2122,0100504,'W',40000,2018,'Aug',09);
+INSERT INTO BOC_Transaction VALUES(30027,35000000,2331,1200503,'E',30000,2018,'Aug',04);
+INSERT INTO BOC_Transaction VALUES(30028,27000000,3104,1100502,'D',190000,2018,'Aug',08);
+INSERT INTO BOC_Transaction VALUES(30029,777777,9910,0100403,'C',null,2018,'Jan',02);
+INSERT INTO BOC_Transaction VALUES(30030,888888,8712,0100402,'C',null,2018,'Jan',03);
+INSERT INTO BOC_Transaction VALUES(30031,666666,8990,0200202,'C',null,2018,'Feb',02);
+INSERT INTO BOC_Transaction VALUES(30032,333333,9211,0400203,'C',null,2018,'Feb',04);
+INSERT INTO BOC_Transaction VALUES(30033,010101,8321,0700403,'C',40000,2018,'Mar',03);
+INSERT INTO BOC_Transaction VALUES(30034,999999,8888,0900203,'C',null,2018,'Mar',04);
+INSERT INTO BOC_Transaction VALUES(30035,666666,8990,0600203,'C',null,2018,'Apr',02);
+INSERT INTO BOC_Transaction VALUES(30036,555555,9123,0800202,'C',null,2018,'Jun',06);
+INSERT INTO BOC_Transaction VALUES(30037,222222,9212,0100402,'C',null,2018,'Jul',01);
+INSERT INTO BOC_Transaction VALUES(30038,null,2001,0300202,'E',20000,2018,'Jul',07);
+INSERT INTO BOC_Transaction VALUES(30039,null,2812,0500302,'E',1800,2018,'Jul',07);
+INSERT INTO BOC_Transaction VALUES(30040,null,2999,0500302,'E',9000,2018,'Jul',09);
+INSERT INTO BOC_Transaction VALUES(30041,null,3910,0800303,'E',1000,2018,'Aug',04);
+INSERT INTO BOC_Transaction VALUES(30042,null,3000,0900302,'E',8000,2018,'Apr',01);
+INSERT INTO BOC_Transaction VALUES(30043,null,2812,1200504,'E',500,2018,'Apr',01);
+INSERT INTO BOC_Transaction VALUES(30044,null,2769,1200502,'E',3000,2018,'Apr',04);
+INSERT INTO BOC_Transaction VALUES(30045,null,3321,0600303,'E',10000,2018,'Jun',10);
+INSERT INTO BOC_Transaction VALUES(30046,null,4511,1000504,'E',6000,2018,'Aug',04);
+

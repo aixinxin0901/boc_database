@@ -1,0 +1,26 @@
+select cusid,cusname,(2018-cusbirth) as age, cuslevel from boc_customer 
+where custype = 'P' and (cuslevel = 'A' or cuslevel = 'B') order by cusid;
+
+
+select branchid, depname, staffname, staffgender, (2018-staffbirth) as staffage, salary 
+from boc_department natural join boc_staff 
+where depname = 'Corporate Banking' order by branchid, depname;
+
+
+select d.branchid, d.depname, s.staffname, s.staffgender, (2018-s.staffbirth) as staffage, s.salary 
+from boc_department d, boc_staff s 
+where d.branchid = s.branchid and d.depid = s.depid and d.depname = 'Corporate Banking' order by d.branchid;
+
+
+select  depname, count(staffid) as staffno 
+from boc_department natural join boc_staff 
+group by depname  
+having count(staffid) >= 10 order by depname;
+
+
+select * from boc_staff where salary >= (select avg(salary) from boc_staff);
+
+
+select a.staffid, a.staffname, a.staffgender, (2018-a.staffbirth) as age, a.stafflevel, a.salary, a.managerid, b.salary as managersalary 
+from boc_staff a, boc_staff b  
+where a.managerid = b.staffid and a.salary > b.salary;
